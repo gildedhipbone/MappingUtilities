@@ -7,10 +7,12 @@ You can set a custom grid scale multiplier and a custom unit name in the add-on 
 To-do: Add an option to draw the grid scale to the viewport.
 
 **Note**: Remember to set Blender to use the "None" unit system.
+
 ![ResaleAllGrids](https://user-images.githubusercontent.com/36510916/188155972-9758adb4-74b8-4b39-82b8-eb69b945a56e.gif)
 
 ## ExtrudeIntoObject
 Extrudes a selection of faces into a new and closed object, using Ctrl+Alt+E. Supports multi-object editing.
+
 ![ExtrudeIntoObject](https://user-images.githubusercontent.com/36510916/188155936-a62b03a4-df7c-428a-9a6e-cb45be1d9d4c.gif)
 
 ## Assign Per-Face Materials
