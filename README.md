@@ -3,9 +3,9 @@ A collection of small add-ons that make it easier to use Blender as an old-schoo
 ## Rescale All Grids
 Change grid scale manually and simultaneously for all viewports, using the numpad - and + keys. 
 When you change the grid scale it will be output to the bottom header. 
-You can set the "custom_multiplier" in the script if you want 1 Blender Unit to represent a number of your choosing. 
-In the future this will be an add-on setting, with an option to output it to the viewport.
-**Note**: set Blender to use the "None" unit system.
+You can set a custom grid scale multiplier and a custom unit name in the add-on preferences.
+To-do: Add an option to draw the grid scale to the viewport.
+**Note**: Remember to set Blender to use the "None" unit system.
 ![ResaleAllGrids](https://user-images.githubusercontent.com/36510916/188155972-9758adb4-74b8-4b39-82b8-eb69b945a56e.gif)
 
 ## ExtrudeIntoObject
