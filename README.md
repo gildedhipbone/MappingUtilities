@@ -16,6 +16,7 @@ Extrudes a selection of faces into a new and closed object, using Ctrl+Alt+E. Su
 ## Assign Per-Face Materials
 Assigns a separate material to every face in the object. 
 Should be used together with an add-on that can clean up clone materials, because this add-on doesn't do anything like that yet.
+
 ![AssignMatsPerFace](https://user-images.githubusercontent.com/36510916/188155558-6b2807c5-305a-4475-8f04-9b1340eb5be7.gif)
 
 ## Useful add-ons
