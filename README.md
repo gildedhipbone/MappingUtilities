@@ -1,7 +1,7 @@
 # MappingUtilities
 A collection of small add-ons that make it easier to use Blender as an old-school level editor.
 ## Rescale All Grids
-Decrease/increase grid scale manually and simultaneously for all viewports, using the Numpad -/+. 
+Decrease/increase grid scale manually and simultaneously for all viewports, using Numpad -/+. 
 When you change the grid scale it will be output to the bottom header. 
 You can set a custom grid scale multiplier and a custom unit name in the add-on preferences.
 To-do: Add an option to draw the grid scale to the viewport.
