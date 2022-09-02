@@ -2,7 +2,7 @@ import bpy
 
 bl_info = {
     "name": "Assign Per-Face Materials",
-    "description": "Assigns a material for every face in the object.",
+    "description": "Assigns a material to every face in the object.",
     "author": "Jacob Falck",
     "blender": (3, 1, 0),
     "version": (1, 0, 0),
@@ -16,7 +16,7 @@ bl_info = {
 class AUTOSLOTS_OT_auto_assign_slots(bpy.types.Operator):
     """Tooltip."""
     bl_idname = "facemat.assign_mat_per_face"
-    bl_label = "Assign Per-Face Materials"
+    bl_label = "Assign Materials to All Faces"
     bl_space_type = 'VIEW_3D'
 
     def execute(self, context):

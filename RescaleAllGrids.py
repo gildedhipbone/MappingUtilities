@@ -21,8 +21,9 @@ class RescaleGrids(bpy.types.Operator):
     
     grid_scalar: bpy.props.FloatProperty(default=1.0)
     grid_scale: bpy.props.FloatProperty()
-    # 1 BU = 32 pixels. 
-    custom_multiplier: bpy.props.FloatProperty(default=32.0)
+    # Set to custom multiplier to whatever you want 1 Blender Unit to represent.
+    # This should be exposed in the add-on settings. Also add an option to set a custom unit extension, e.g. "px".
+    custom_multiplier: bpy.props.FloatProperty(default=1.0)
 
     def execute(self, context):
         for window in bpy.context.window_manager.windows:
@@ -35,7 +36,7 @@ class RescaleGrids(bpy.types.Operator):
                         s.overlay.grid_scale *= self.grid_scalar
                         self.grid_scale = s.overlay.grid_scale
                         break
-        # would be nicer to display this in the viewport.
+        # This should be drawn in the display port.
         self.report({"INFO"}, f"Grid scale: {self.grid_scale * self.custom_multiplier}")
         return {"FINISHED"}
 
