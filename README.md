@@ -12,6 +12,7 @@ To-do: Add an option to draw the grid scale to the viewport.
 
 ## ExtrudeIntoObject
 Extrudes a selection of faces into a new and closed object, using Ctrl+Alt+E. Supports multi-object editing.
+To-do: select the new top faces and activate fatten/shrinken.
 
 ![ExtrudeIntoObject](https://user-images.githubusercontent.com/36510916/188155936-a62b03a4-df7c-428a-9a6e-cb45be1d9d4c.gif)
 
