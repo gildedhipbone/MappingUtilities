@@ -7,8 +7,8 @@ bl_info = {
     "name": "Extrude Into Object",
     "description": "Extrude selected faces into closed objects.",
     "author": "Jacob Falck",
-    "blender": (3, 1, 0),
-    "version": (1, 0, 0),
+    "blender": (3, 0, 0),
+    "version": (1, 0, 1),
     "location": "",
     "warning": "",
     "wiki_url": "",
@@ -38,7 +38,7 @@ class ExtrudeIntoObject(bpy.types.Operator):
         if len(sel_objs) == 0:
             self.report({"INFO"}, "No face selected, aborting.")
             return {"FINISHED"}
-        print(sel_objs)
+        #print(sel_objs)
 
         for obj in sel_objs:
             bpy.ops.object.mode_set(mode="EDIT")
@@ -47,6 +47,9 @@ class ExtrudeIntoObject(bpy.types.Operator):
 
             context.view_layer.objects.active = obj
             # Create new face map and set it as active.
+            # Deprecated in 4.0. Replace with:
+            # "Ok I actually found a stupid easy workaround. Just create two new materials, and assign the selected faces to the second material." from https://projects.blender.org/blender/blender/issues/105317
+            # Also look at: https://github.com/varkenvarken/blenderaddons/blob/master/facemap_select.py
             obj.face_maps.new(name=str(obj.name))
             obj.face_maps.active_index = obj.face_maps[str(obj.name)].index
             # I'M SURE ITS THIS PIECE OF SHIT THAT WONT UPDATE FOR WHATEVER REASON.
@@ -68,12 +71,12 @@ class ExtrudeIntoObject(bpy.types.Operator):
             bm = bmesh.from_edit_mesh(obj.data)
             bm.faces.ensure_lookup_table()
 
-            for f in bm.faces:
-                if f.select == True:
-                    print(f)
+            # for f in bm.faces:
+            #     if f.select == True:
+            #         print(f)
 
             selected_faces = [f for f in bm.faces if f.select]
-            print("sel faces: ", selected_faces)
+            #print("sel faces: ", selected_faces)
             selected_verts = [v for v in bm.verts if v.select]
 
             # extrude_region_move removes internal faces, so we have to create duplicates. 

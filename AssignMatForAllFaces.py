@@ -2,9 +2,9 @@ import bpy
 
 bl_info = {
     "name": "Assign Per-Face Materials",
-    "description": "Assigns a material to every face in the object.",
+    "description": "Assigns a slot and material to every face in the object.",
     "author": "Jacob Falck",
-    "blender": (3, 1, 0),
+    "blender": (4, 0, 0),
     "version": (1, 0, 0),
     "location": "",
     "warning": "",
@@ -25,9 +25,6 @@ class AUTOSLOTS_OT_auto_assign_slots(bpy.types.Operator):
         mesh = ob.data
 
         for face in mesh.polygons:
-            
-            # unfortunatley, this creates duplicates of materials that are already present.
-            # but it doesn't matter much. unassigned materials can be removed at a later point.
             if len(ob.material_slots) > 0:
                 if ob.material_slots[face.material_index] is not None:
                     mat = ob.material_slots[face.material_index].material

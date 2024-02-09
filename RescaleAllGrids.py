@@ -7,7 +7,7 @@ bl_info = {
     "name": "Rescale All Grids",
     "description": "Manually rescale all grids.", 
     "author": "Jacob Falck",
-    "blender": (3, 1, 0),
+    "blender": (4, 0, 0),
     "version": (1, 0, 0),
     "location": "",
     "warning": "",
