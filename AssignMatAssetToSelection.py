@@ -1,4 +1,5 @@
 import bpy
+import bmesh
 
 bl_info = {
     "name": "Assign Material Asset to Selection",
@@ -13,49 +14,76 @@ bl_info = {
     "category": "Material"
 }
 
+def get_selected_face_indices(obj):
+    """Get selected face indices using bmesh (more efficient)"""
+    if not obj or obj.type != 'MESH':
+        return []
+    
+    bm = bmesh.from_mesh(obj.data)
+    bm.faces.ensure_lookup_table()
+    selected_faces = [f.index for f in bm.faces if f.select]
+    bm.free()
+    return selected_faces
+
 def assign_material_to_selected_faces(obj, material, selected_faces):
     """Assign material to specific faces of an object"""
-    if not obj or not material or not selected_faces:
+    if not obj or obj.type != 'MESH' or not material or not selected_faces:
         return False
     
-    # Add material to object if not already present
+    # Add material if not present and get index
     if material.name not in obj.data.materials:
         obj.data.materials.append(material)
+        mat_idx = len(obj.data.materials) - 1
+    else:
+        mat_idx = obj.data.materials.find(material.name)
     
-    # Get material slot index
-    mat_idx = None
-    for i, slot in enumerate(obj.material_slots):
-        if slot.material == material:
-            mat_idx = i
-            break
-    
-    if mat_idx is None:
-        # Material was added but not found in slots, find it
-        for i, slot in enumerate(obj.material_slots):
-            if slot.material and slot.material.name == material.name:
-                mat_idx = i
-                break
-    
-    if mat_idx is None:
-        print(f"Could not find material slot for {material.name}")
+    if mat_idx == -1:
+        print(f"Failed to find material slot for {material.name}")
         return False
     
-    # Switch to object mode to assign material
+    # Store current mode
     current_mode = obj.mode
-    if current_mode != 'OBJECT':
+    needs_mode_switch = current_mode != 'OBJECT'
+    
+    if needs_mode_switch:
         bpy.ops.object.mode_set(mode='OBJECT')
     
-    # Assign material to previously selected faces
+    # Assign material to faces
+    mesh = obj.data
     for face_idx in selected_faces:
-        if face_idx < len(obj.data.polygons):
-            obj.data.polygons[face_idx].material_index = mat_idx
+        if face_idx < len(mesh.polygons):
+            mesh.polygons[face_idx].material_index = mat_idx
     
-    # Return to previous mode
-    if current_mode != 'OBJECT':
+    # Restore mode
+    if needs_mode_switch:
         bpy.ops.object.mode_set(mode=current_mode)
     
     return True
 
+def load_material_from_asset(asset_representation):
+    """Load material from asset library"""
+    try:
+        material_name = asset_representation.name
+        blend_path = asset_representation.full_library_path
+        
+        if not blend_path:
+            return None
+            
+        with bpy.data.libraries.load(blend_path, link=False) as (data_from, data_to):
+            if material_name in data_from.materials:
+                data_to.materials = [material_name]
+            else:
+                return None
+        
+        material = bpy.data.materials.get(material_name)
+        if material and material.asset_data:
+            material.asset_clear()
+            
+        return material
+        
+    except Exception as e:
+        print(f"Error loading material from asset: {e}")
+        return None
 
 class AssignMatAssetToSelection(bpy.types.Operator):
     """Assign selected material asset to face selection in edit mode"""
@@ -65,62 +93,38 @@ class AssignMatAssetToSelection(bpy.types.Operator):
     
     @classmethod
     def poll(cls, context):
-        # Check if in edit mode and have selected assets
-        if context.mode != "EDIT_MESH":
+        # Check prerequisites
+        if (context.mode != "EDIT_MESH" or 
+            not context.object or 
+            context.object.type != 'MESH'):
             return False
         
-        # Verify we have at least one material asset selected
+        # Check for selected assets
         if not hasattr(context, 'selected_assets') or not context.selected_assets:
             return False
             
-        # Check if first selected asset is a material
         return context.selected_assets[0].id_type == 'MATERIAL'
     
     def execute(self, context):
-        asset_representation = context.selected_assets[0]
         obj = context.object
+        asset_representation = context.selected_assets[0]
         material_name = asset_representation.name
         
-        # Store current face selection
-        bpy.ops.object.mode_set(mode='OBJECT')
-        selected_faces = [i for i, f in enumerate(obj.data.polygons) if f.select]
-        bpy.ops.object.mode_set(mode='EDIT')
-        
+        # Get selected faces
+        selected_faces = get_selected_face_indices(obj)
         if not selected_faces:
             self.report({'WARNING'}, "No faces selected")
             return {'CANCELLED'}
         
-        # Check if object already has the material
-        material = None
-        if material_name in obj.data.materials:
-            material = bpy.data.materials.get(material_name)
-        else:
-            # Check if material exists in current file
-            material = bpy.data.materials.get(material_name)
-            
-            if material is None:
-                # Load the asset from library
-                try:
-                    blend_path = asset_representation.full_library_path
-                    with bpy.data.libraries.load(blend_path, link=False) as (data_from, data_to):
-                        if material_name in data_from.materials:
-                            data_to.materials = [material_name]
-                        else:
-                            self.report({'ERROR'}, f"Material '{material_name}' not found in asset file")
-                            return {'CANCELLED'}
-                    
-                    material = bpy.data.materials.get(material_name)
-                    if material and material.asset_data:
-                        material.asset_clear()
-                except Exception as e:
-                    self.report({'ERROR'}, f"Failed to load asset: {str(e)}")
-                    return {'CANCELLED'}
-            
-            # Append material to object
-            if material:
-                obj.data.materials.append(material)
+        # Find or load material
+        material = (bpy.data.materials.get(material_name) or 
+                   load_material_from_asset(asset_representation))
         
-        # Assign to selected faces
+        if not material:
+            self.report({'ERROR'}, f"Failed to load material '{material_name}'")
+            return {'CANCELLED'}
+        
+        # Assign to faces
         success = assign_material_to_selected_faces(obj, material, selected_faces)
         
         if success:
@@ -130,26 +134,20 @@ class AssignMatAssetToSelection(bpy.types.Operator):
             self.report({'ERROR'}, "Failed to assign material to selection")
             return {'CANCELLED'}
 
-
 def display_button(self, context):
     """Draw the operator button in the asset browser header"""
-    layout = self.layout
-    
-    # Only show if we have material assets selected
-    if hasattr(context, 'selected_assets') and context.selected_assets:
-        if context.selected_assets[0].id_type == 'MATERIAL':
-            layout.operator(AssignMatAssetToSelection.bl_idname, icon='MATERIAL')
-
+    if (hasattr(context, 'selected_assets') and 
+        context.selected_assets and 
+        context.selected_assets[0].id_type == 'MATERIAL'):
+        self.layout.operator(AssignMatAssetToSelection.bl_idname, icon='MATERIAL')
 
 def register():
     bpy.utils.register_class(AssignMatAssetToSelection)
     bpy.types.ASSETBROWSER_MT_editor_menus.append(display_button)
 
-
 def unregister():
     bpy.types.ASSETBROWSER_MT_editor_menus.remove(display_button)
     bpy.utils.unregister_class(AssignMatAssetToSelection)
-
 
 if __name__ == "__main__":
     register()
