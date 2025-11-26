@@ -7,129 +7,202 @@ bl_info = {
     "name": "Extrude Into Closed Mesh",
     "description": "Extrude selected faces into closed mesh.",
     "author": "Jacob Falck",
-    "blender": (4, 0, 0),
-    "version": (1, 0, 1),
-    "location": "",
+    "blender": (5, 0, 0),
+    "version": (1, 1, 0),
+    "location": "View3D > Mesh > Extrude Into Closed Mesh",
     "warning": "",
-    "wiki_url": "",
+    "doc_url": "",
     "tracker_url": "",
-    "category": "View 3D"
+    "category": "Mesh"
 }
 
-# To do:
-# Add poll; return only in edit mode.
 
 class ExtrudeIntoClosedMesh(bpy.types.Operator):
-    """Tooltip."""
-    bl_idname = "view3d.extrude_into_closed_mesh"
+    """Extrude selected faces into a closed mesh with proper topology"""
+    bl_idname = "mesh.extrude_into_closed_mesh"
     bl_label = "Extrude Into Closed Mesh"
-    bl_space_type = 'VIEW_3D'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        """Only allow in edit mode with mesh object"""
+        return (context.mode == 'EDIT_MESH' and 
+                context.object is not None and 
+                context.object.type == 'MESH')
 
     def execute(self, context):
         obj = context.object
-        # Helps for some reason.
-        bpy.ops.object.mode_set(mode="OBJECT")
-        bpy.ops.object.mode_set(mode="EDIT")
+        
+        # Ensure we're in edit mode
+        if context.mode != 'EDIT_MESH':
+            self.report({'WARNING'}, "Must be in Edit Mode")
+            return {'CANCELLED'}
 
-        sel_polys = [p for p in obj.data.polygons if p.select]
-
-        if len(sel_polys) == 0:
-            self.report({"INFO"}, "No face selected, aborting.")
-            return {"CANCELLED"}
-
+        # Get BMesh from edit mode (this is the correct selection state)
         bm = bmesh.from_edit_mesh(obj.data)
         bm.faces.ensure_lookup_table()
+        bm.verts.ensure_lookup_table()
 
+        # Check for selected faces using BMesh (not obj.data.polygons)
         selected_faces = [f for f in bm.faces if f.select]
+        if len(selected_faces) == 0:
+            self.report({'INFO'}, "No faces selected")
+            return {'CANCELLED'}
         src_sel_verts = [v for v in bm.verts if v.select]
 
-        # Duplicate source verts and faces.
+        # Duplicate source verts and faces
         ret = bmesh.ops.duplicate(bm, geom=selected_faces)
         dupl = ret["geom"]
-        del ret
         dupl_src_verts = [ele for ele in dupl if isinstance(ele, bmesh.types.BMVert)]
         dupl_src_faces = [ele for ele in dupl if isinstance(ele, bmesh.types.BMFace)]
-        # Save normals for selection at the end.
-        lead_normals = []
-        for f in dupl_src_faces:
-            lead_normals.append(f.normal)
+        
+        # Save normals for selection at the end
+        lead_normals = [f.normal.copy() for f in dupl_src_faces]
 
-        # Duplicate for rear faces.
+        # Duplicate for rear faces
         ret = bmesh.ops.duplicate(bm, geom=selected_faces)
         dupl2 = ret["geom"]
-        del ret
         rear_faces = [ele for ele in dupl2 if isinstance(ele, bmesh.types.BMFace)]
+        
+        # Flip rear face normals
         for f in rear_faces:
             f.normal_flip()
 
-        # Get the average normal along which to extrude.
+        # Calculate average normal for extrusion direction
         vector_mean = Vector((0, 0, 0))
         for f in selected_faces:
             vector_mean += f.normal
-        vector_mean /= len(selected_faces)
+        vector_mean.normalize()
 
-        # This is an ugly hack. But using extrude_region_move rather than bmesh results in fewer 
-        # instances of UV stretching. I don't know why. Something to do with Correct Face Attributes?
-        bpy.ops.mesh.extrude_region_move(TRANSFORM_OT_translate={"value":vector_mean})
+        # Update mesh before operator call
+        bmesh.update_edit_mesh(obj.data)
 
-        # Select adjacent faces.
-        adj_faces = set(v for v in bm.verts if v.select for v in v.link_faces if not v.select)
+        # Extrude using operator for better UV handling
+        bpy.ops.mesh.extrude_region_move(
+            TRANSFORM_OT_translate={"value": vector_mean}
+        )
+
+        # Refresh BMesh reference after operator
+        bm = bmesh.from_edit_mesh(obj.data)
+        bm.faces.ensure_lookup_table()
+        bm.verts.ensure_lookup_table()
+
+        # Select adjacent faces
+        selected_verts = [v for v in bm.verts if v.select]
+        adj_faces = set()
+        for v in selected_verts:
+            for f in v.link_faces:
+                if not f.select:
+                    adj_faces.add(f)
+        
         for f in adj_faces:
             f.select = True
 
-        # Split the current selection (lead faces + adjacent faces)
+        # Update and split
+        bmesh.update_edit_mesh(obj.data)
         bpy.ops.mesh.split()
+
+        # Refresh BMesh
+        bm = bmesh.from_edit_mesh(obj.data)
+        bm.faces.ensure_lookup_table()
+        bm.verts.ensure_lookup_table()
+        
         selected_faces = [f for f in bm.faces if f.select]
 
-        # Merge extruded verts and rear duplicate verts.
+        # Merge extruded verts with rear duplicate verts
         for f in rear_faces:
-            f.select = True
-        bpy.ops.mesh.remove_doubles()
-
-        bpy.ops.mesh.select_all(action = 'DESELECT')
-
-        # Merge source and duplicate verts.
-        for v in src_sel_verts:
-            v.select = True
-        for v in dupl_src_verts:
-            v.select = True    
-        bpy.ops.mesh.remove_doubles()
-
-        bpy.ops.mesh.select_all(action = 'DESELECT')
+            if f.is_valid:
+                f.select = True
         
+        bmesh.update_edit_mesh(obj.data)
+        bpy.ops.mesh.remove_doubles()
 
+        # Deselect all
+        bm = bmesh.from_edit_mesh(obj.data)
+        bm.faces.ensure_lookup_table()
+        bm.verts.ensure_lookup_table()
+        
+        bpy.ops.mesh.select_all(action='DESELECT')
+
+        # Merge source and duplicate verts
+        for v in src_sel_verts:
+            if v.is_valid:
+                v.select = True
+        for v in dupl_src_verts:
+            if v.is_valid:
+                v.select = True
+        
+        bmesh.update_edit_mesh(obj.data)
+        bpy.ops.mesh.remove_doubles()
+
+        # Deselect all
+        bm = bmesh.from_edit_mesh(obj.data)
+        bm.faces.ensure_lookup_table()
+        bpy.ops.mesh.select_all(action='DESELECT')
+
+        # Select lead faces based on normal comparison
         for f in selected_faces:
-            for n in lead_normals:
-                if (f.normal-n).length < 0.001:
-                    f.select = True
+            if f.is_valid:
+                for n in lead_normals:
+                    if (f.normal - n).length < 0.001:
+                        f.select = True
+                        break
 
-        # Move back, but not all the way (if we do, we'll get more UV stretching issues)
-        bpy.ops.transform.translate(value=(0,0,-0.999), orient_type="NORMAL", constraint_axis=(False, False, True))
-            
         bmesh.update_edit_mesh(obj.data)
 
-        bpy.ops.transform.translate('INVOKE_DEFAULT', orient_type="NORMAL", constraint_axis=(False, False, True))
+        # Move back slightly to avoid UV stretching
+        bpy.ops.transform.translate(
+            value=(0, 0, -0.999),
+            orient_type='NORMAL',
+            constraint_axis=(False, False, True)
+        )
 
-        return {"FINISHED"}
+        # Invoke interactive transform
+        bpy.ops.transform.translate(
+            'INVOKE_DEFAULT',
+            orient_type='NORMAL',
+            constraint_axis=(False, False, True)
+        )
+
+        return {'FINISHED'}
+
+
+def menu_func(self, context):
+    """Add menu entry"""
+    self.layout.operator(ExtrudeIntoClosedMesh.bl_idname, text="Extrude Into Closed Mesh")
+
 
 addon_keymaps = []
 
+
 def register():
     bpy.utils.register_class(ExtrudeIntoClosedMesh)
+    bpy.types.VIEW3D_MT_edit_mesh_extrude.append(menu_func)
 
+    # Add keymap
     wm = bpy.context.window_manager
     kc = wm.keyconfigs.addon
     if kc:
-        km = wm.keyconfigs.addon.keymaps.new(name="3D View", space_type="VIEW_3D")
-        kmi = km.keymap_items.new(ExtrudeIntoClosedMesh.bl_idname, type="E", value="PRESS", ctrl=True, alt=True)
+        km = kc.keymaps.new(name='Mesh', space_type='EMPTY')
+        kmi = km.keymap_items.new(
+            ExtrudeIntoClosedMesh.bl_idname,
+            type='E',
+            value='PRESS',
+            ctrl=True,
+            alt=True
+        )
         addon_keymaps.append((km, kmi))
 
+
 def unregister():
+    # Remove keymap
     for km, kmi in addon_keymaps:
         km.keymap_items.remove(kmi)
     addon_keymaps.clear()
 
+    bpy.types.VIEW3D_MT_edit_mesh_extrude.remove(menu_func)
     bpy.utils.unregister_class(ExtrudeIntoClosedMesh)
+
 
 if __name__ == "__main__":
     register()
