@@ -21,7 +21,7 @@ It's currently not possible to hook into the Asset Browser's drag and drop funct
 ![assign_mat_to_selection](https://github.com/gildedhipbone/MappingUtilities/assets/36510916/2364f60f-4c76-47ca-a687-3271b610b823)
 
 ## Tips & Useful Add-ons
-Blender has a crucial setting called "Correct Face Attributes", which presents UV distortion when you're manipulating a mesh.
+Blender has a crucial setting called "Correct Face Attributes", which prevents UV distortion when you're manipulating a mesh.
 
 Jason van Gumster's **Lockview** script that exposes the lock view rotation that Blender's Quad View uses. 
 This lets you set up and lock custom orto viewports.
